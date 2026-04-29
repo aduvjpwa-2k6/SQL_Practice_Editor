@@ -2045,10 +2045,6 @@
             loadColumns(tableName, engine, colList);
             colsLoaded = true;
           }
-          if (!isOpen) {
-            editor.value = `SELECT * FROM "${tableName}" LIMIT 100;`;
-            updateLineNumbers();
-          }
         });
 
         wrap.appendChild(item);
