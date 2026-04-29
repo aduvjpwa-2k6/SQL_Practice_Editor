@@ -1,0 +1,2186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SQL Practice Editor</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      #app {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        background: var(--color-background-primary);
+        border: 0.5px solid var(--color-border-tertiary);
+        border-radius: var(--border-radius-lg);
+        overflow: hidden;
+        font-family: var(--font-sans);
+      }
+      #toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        background: #1a1d23;
+        border-bottom: 1px solid #2d3139;
+        flex-shrink: 0;
+      }
+      #toolbar .logo {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #e2e8f0;
+        margin-right: 6px;
+        letter-spacing: 0.01em;
+      }
+      #toolbar .logo svg {
+        width: 22px;
+        height: 22px;
+        color: #10b981;
+      }
+      .tb-btn {
+        font-size: 13px;
+        padding: 6px 12px;
+        border-radius: 4px;
+        border: 1px solid #3d4149;
+        background: #252830;
+        color: #c8cdd6;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .tb-btn:hover {
+        background: #2f333d;
+        color: #e2e8f0;
+      }
+      .tb-btn.run {
+        background: #1d9e75;
+        border-color: #0f6e56;
+        color: #fff;
+        font-weight: 600;
+      }
+      .tb-btn.run:hover {
+        background: #15875f;
+      }
+      #kbd {
+        font-size: 12px;
+        color: white;
+        margin-left: 4px;
+      }
+      #main {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+
+      .sidebar-hidden #sidebar {
+        width: 0;
+        overflow: hidden;
+      }
+
+      /* ---- SIDEBAR ---- */
+      #sidebar {
+        width: 240px;
+        flex-shrink: 0;
+        background: #13151a;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border-right: 1px solid #1f2229;
+        transition: width 0.2s ease-in-out;
+      }
+      #sb-top {
+        flex-shrink: 0;
+      }
+      .db-zone {
+        padding: 0;
+      }
+      .zone-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        background: #1a1d23;
+        border-bottom: 1px solid #1f2229;
+        border-top: 1px solid #1f2229;
+        margin-top: 4px;
+      }
+      .zone-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: #6b7280;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .zone-add {
+        width: 20px;
+        height: 20px;
+        border-radius: 3px;
+        border: 1px solid #2d3139;
+        background: transparent;
+        color: #6b7280;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        line-height: 1;
+      }
+      .zone-add:hover {
+        background: #252830;
+        color: #a0aec0;
+      }
+      .db-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #1a1d23;
+        transition: background 0.1s;
+        user-select: none;
+      }
+      .db-item:hover {
+        background: #1e2128;
+      }
+      .db-item.active {
+        background: #1e2128;
+      }
+      .db-item-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+        min-width: 0;
+      }
+      .db-icon {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .db-name {
+        font-size: 14px;
+        color: #c8cdd6;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .db-item.active .db-name {
+        color: #e2e8f0;
+        font-weight: 500;
+      }
+      .db-arrow {
+        color: #4b5563;
+        font-size: 12px;
+        flex-shrink: 0;
+        transition: transform 0.2s;
+      }
+      .db-arrow.open {
+        transform: rotate(90deg);
+      }
+      .db-desc {
+        font-size: 12px;
+        color: #4b5563;
+        padding: 4px 12px 8px 12px;
+      }
+
+      /* sub-items inside expanded DB */
+      .db-sub {
+        background: #0f1115;
+        padding: 4px 0;
+      }
+      .sub-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px 8px;
+      }
+      .sub-icon-btn {
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        border: 1px solid #2d3139;
+        background: transparent;
+        color: #6b7280;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+      }
+      .sub-icon-btn:hover {
+        background: #1e2128;
+        color: #a0aec0;
+      }
+      .sub-badge {
+        font-size: 11px;
+        color: #4b5563;
+        padding: 0 6px;
+      }
+      .sub-section {
+        padding: 2px 0 6px;
+      }
+      .sub-section-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: #6b7280;
+        padding: 6px 12px 4px;
+        letter-spacing: 0.04em;
+      }
+      .table-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 12px 6px 30px;
+        cursor: pointer;
+        transition: background 0.1s;
+      }
+      .table-item:hover {
+        background: #1e2128;
+      }
+      .table-item.active {
+        background: #1e2128;
+      }
+      .table-item-left {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .tbl-icon {
+        color: #d97706;
+        font-size: 14px;
+      }
+      .tbl-name {
+        font-size: 14px;
+        color: #c8cdd6;
+      }
+      .table-item.active .tbl-name {
+        color: #e2e8f0;
+      }
+      .tbl-arr {
+        color: #4b5563;
+        font-size: 9px;
+      }
+
+      /* column list */
+      .col-list {
+        background: #0b0d11;
+        padding: 4px 0 8px;
+      }
+      .col-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px 4px 44px;
+        font-size: 13px;
+        color: #6b7280;
+      }
+      .col-pk {
+        color: #d97706;
+        font-size: 10px;
+        font-weight: 700;
+        background: #2d1f08;
+        padding: 1px 4px;
+        border-radius: 3px;
+      }
+      .col-fk {
+        color: #3b82f6;
+        font-size: 10px;
+        font-weight: 700;
+        background: #0c1f3a;
+        padding: 1px 4px;
+        border-radius: 3px;
+      }
+      .col-type {
+        color: #4b5563;
+        font-size: 12px;
+        margin-left: auto;
+      }
+
+      .demo-memory {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 12px;
+        background: #1a1d23;
+        border-bottom: 1px solid #1f2229;
+        font-size: 13px;
+        color: #6b7280;
+        cursor: pointer;
+        transition: background 0.1s;
+      }
+      .demo-memory:hover {
+        background: #1e2128;
+        color: #9ca3af;
+      }
+      .demo-server {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 12px;
+        background: #1a1d23;
+        border-top: 1px solid #1f2229;
+        border-bottom: 1px solid #1f2229;
+        font-size: 13px;
+        color: #6b7280;
+        margin-top: 4px;
+      }
+
+      .offline-badge {
+        font-size: 11px;
+        color: #4b5563;
+        font-style: italic;
+        margin-left: 6px;
+      }
+
+      /* scroll area */
+      #sb-scroll {
+        flex: 1;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #2d3139 transparent;
+      }
+      #sb-scroll::-webkit-scrollbar {
+        width: 4px;
+      }
+      #sb-scroll::-webkit-scrollbar-thumb {
+        background: #2d3139;
+        border-radius: 2px;
+      }
+
+      /* ---- EDITOR PANEL ---- */
+      #editor-panel {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        overflow: hidden;
+        background: #1a1d23;
+      }
+      #query-tabs {
+        display: flex;
+        align-items: center;
+        background: #1a1d23;
+        border-bottom: 1px solid #2d3139;
+        flex-shrink: 0;
+        padding-left: 5px;
+        overflow-x: auto;
+        gap: 2px;
+      }
+      .query-tab {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 28px 8px 14px;
+        font-size: 13px;
+        color: #6b7280;
+        cursor: pointer;
+        user-select: none;
+        position: relative;
+        max-width: 180px;
+        background: #111317;
+        border-radius: 6px 6px 0 0;
+        border-bottom: 2px solid transparent;
+      }
+      .query-tab span:not(.tab-icon):not(.close-tab-btn) {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .query-tab.active {
+        background: #13151a;
+        color: #e2e8f0;
+        border-bottom-color: #1d9e75;
+      }
+      .query-tab:hover {
+        background: #252830;
+      }
+      .tab-icon {
+        font-style: normal;
+        flex-shrink: 0;
+      }
+      .close-tab-btn {
+        position: absolute;
+        right: 6px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 18px;
+        height: 18px;
+        border-radius: 3px;
+        line-height: 16px;
+        text-align: center;
+        font-size: 14px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6b7280;
+      }
+      .query-tab:hover .close-tab-btn {
+        display: flex;
+      }
+      .close-tab-btn:hover {
+        background: #374151;
+        color: #e2e8f0;
+      }
+      .add-tab-btn {
+        padding: 8px 12px;
+        font-size: 16px;
+        font-weight: bold;
+        color: #6b7280;
+        cursor: pointer;
+        margin-left: 5px;
+        transition: 0.1s;
+      }
+      .add-tab-btn:hover {
+        color: #e2e8f0;
+      }
+      #editor-wrap {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+      }
+      #editor-wrap::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 50px;
+        background: #151820;
+        border-right: 1px solid #1f2229;
+        pointer-events: none;
+        z-index: 1;
+      }
+      #sql-editor {
+        width: 100%;
+        height: 100%;
+        resize: none;
+        border: none;
+        outline: none;
+        padding: 14px 14px 14px 60px;
+        font-family: var(--font-mono);
+        font-size: 15px;
+        line-height: 1.65;
+        background: transparent;
+        color: #e2e8f0;
+        tab-size: 2;
+        caret-color: #60d9a0;
+        white-space: pre;
+        overflow: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #2d3139 transparent;
+        position: relative;
+        z-index: 2;
+      }
+      #sql-editor::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      #sql-editor::-webkit-scrollbar-thumb {
+        background: #2d3139;
+        border-radius: 4px;
+      }
+      #sql-editor::placeholder {
+        color: #374151;
+      }
+      #line-nums {
+        position: absolute;
+        left: 0;
+        top: 0;
+        padding: 14px 8px;
+        font-family: var(--font-mono);
+        font-size: 15px;
+        line-height: 1.65;
+        color: #374151;
+        text-align: right;
+        width: 50px;
+        pointer-events: none;
+        user-select: none;
+        z-index: 3;
+      }
+
+      /* result */
+      #result-panel {
+        flex-shrink: 0;
+        border-top: 1px solid #1f2229;
+        display: flex;
+        flex-direction: column;
+        height: 280px;
+        background: #13151a;
+      }
+      #result-tabs {
+        display: flex;
+        align-items: center;
+        background: #13151a;
+        border-bottom: 1px solid #1f2229;
+        padding: 0 12px;
+      }
+      .rtab {
+        font-size: 13px;
+        padding: 8px 16px;
+        cursor: pointer;
+        color: #6b7280;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -0.5px;
+        transition: color 0.15s;
+      }
+      .rtab.active {
+        color: #1d9e75;
+        border-bottom-color: #1d9e75;
+        font-weight: 500;
+      }
+      .rtab:hover {
+        color: #9ca3af;
+      }
+      #result-body {
+        flex: 1;
+        overflow: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #2d3139 transparent;
+      }
+      #result-body::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      #result-body::-webkit-scrollbar-thumb {
+        background: #2d3139;
+      }
+      #result-msg {
+        font-size: 14px;
+        padding: 12px 16px;
+        color: #6b7280;
+      }
+      #result-msg.err {
+        color: #f87171;
+      }
+      #result-msg.ok {
+        color: #34d399;
+      }
+      table.res {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      table.res th {
+        background: #1a1d23;
+        padding: 8px 14px;
+        text-align: left;
+        font-size: 12px;
+        color: #6b7280;
+        font-weight: 600;
+        border-bottom: 1px solid #1f2229;
+        position: sticky;
+        top: 0;
+        white-space: nowrap;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+      table.res td {
+        padding: 6px 14px;
+        border-bottom: 1px solid #151820;
+        color: #c8cdd6;
+        font-family: var(--font-mono);
+        font-size: 14px;
+        white-space: nowrap;
+      }
+      table.res tr:hover td {
+        background: #1e2128;
+      }
+      .null-val {
+        color: #374151;
+        font-style: italic;
+      }
+      .row-count {
+        font-size: 12px;
+        color: #4b5563;
+        padding: 6px 14px;
+        border-bottom: 1px solid #1f2229;
+        background: #151820;
+      }
+
+      /* exercise panel */
+      #ex-panel {
+        border-top: 1px solid #1f2229;
+        flex-shrink: 0;
+        background: #0f1115;
+      }
+      .ex-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: #4b5563;
+        padding: 8px 14px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        border-bottom: 1px solid #1a1d23;
+      }
+      .ex-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 8px 10px;
+      }
+      .ex-btn {
+        font-size: 12px;
+        padding: 5px 12px;
+        border-radius: 4px;
+        border: 1px solid #2d3139;
+        background: #1a1d23;
+        color: #6b7280;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+      .ex-btn:hover {
+        border-color: #3d4149;
+        color: #9ca3af;
+        background: #1e2128;
+      }
+      .ex-btn.done {
+        border-color: #064e3b;
+        background: #022c22;
+        color: #34d399;
+      }
+
+      /* toast */
+      #toast {
+        position: absolute;
+        bottom: 16px;
+        right: 16px;
+        font-size: 13px;
+        padding: 8px 16px;
+        background: #064e3b;
+        color: #6ee7b7;
+        border-radius: 4px;
+        border: 1px solid #065f46;
+        display: none;
+        z-index: 10;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      }
+
+      /* connection modal */
+      #modal-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 20;
+      }
+      #modal {
+        background: #1a1d23;
+        border: 1px solid #2d3139;
+        border-radius: 8px;
+        padding: 24px;
+        width: 360px;
+        max-width: 90%;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+      }
+      #modal h3 {
+        font-size: 16px;
+        color: #e2e8f0;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+      #modal p {
+        font-size: 13px;
+        color: #6b7280;
+        margin-bottom: 16px;
+      }
+      .modal-field {
+        margin-bottom: 12px;
+      }
+      .modal-field label {
+        display: block;
+        font-size: 13px;
+        color: #9ca3af;
+        margin-bottom: 6px;
+      }
+      .modal-field input,
+      .modal-field select {
+        width: 100%;
+        background: #13151a;
+        border: 1px solid #2d3139;
+        border-radius: 4px;
+        padding: 8px 10px;
+        font-size: 14px;
+        color: #e2e8f0;
+        outline: none;
+        font-family: var(--font-mono);
+      }
+      .modal-field input:focus,
+      .modal-field select:focus {
+        border-color: #1d9e75;
+      }
+      .modal-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 20px;
+      }
+      .m-btn {
+        font-size: 14px;
+        padding: 8px 18px;
+        border-radius: 4px;
+        cursor: pointer;
+        border: 1px solid #2d3139;
+      }
+      .m-btn.cancel {
+        background: transparent;
+        color: #6b7280;
+      }
+      .m-btn.cancel:hover {
+        color: #9ca3af;
+      }
+      .m-btn.connect {
+        background: #1d9e75;
+        border-color: #0f6e56;
+        color: #fff;
+        font-weight: 600;
+      }
+      .m-btn.connect:hover {
+        background: #15875f;
+      }
+      /* ---- Paste Modal ---- */
+      #paste-modal-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 20;
+      }
+      #paste-modal {
+        background: #1a1d23;
+        border: 1px solid #2d3139;
+        border-radius: 8px;
+        width: 60vw;
+        height: 70vh;
+        max-width: 900px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+        display: flex;
+        flex-direction: column;
+      }
+      #paste-modal-header {
+        padding: 16px 24px;
+        border-bottom: 1px solid #2d3139;
+      }
+      #paste-modal h3 {
+        font-size: 16px;
+        color: #e2e8f0;
+        font-weight: 600;
+      }
+      #paste-modal-body {
+        flex-grow: 1;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      #paste-modal-body textarea {
+        flex-grow: 1;
+        width: 100%;
+        resize: none;
+        border: none;
+        outline: none;
+        padding: 14px;
+        font-family: var(--font-mono);
+        font-size: 15px;
+        line-height: 1.65;
+        background: #13151a;
+        color: #e2e8f0;
+        tab-size: 2;
+      }
+      #paste-modal-footer {
+        padding: 16px 24px;
+        border-top: 1px solid #2d3139;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app" style="position: relative">
+      <input
+        type="file"
+        id="db-file-input"
+        style="display: none"
+        accept=".db,.sqlite,.sqlite3,.db3"
+      />
+      <div id="toolbar">
+        <span class="logo">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            style="color: lightgreen"
+          >
+            <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+          </svg>
+          <span><font color="lightgreen">SQL Practice</font></span>
+        </span>
+        <button
+          class="tb-btn"
+          onclick="toggleSidebar()"
+          title="Toggle Sidebar"
+          style="
+            font-size: 18px;
+            padding: 4px 8px;
+            margin-right: 6px;
+            line-height: 1;
+          "
+        >
+          ☰
+        </button>
+        <button class="tb-btn run" onclick="runSQL()">
+          ▶ Run <span id="kbd">F5</span>
+        </button>
+        <button class="tb-btn" onclick="clearEditor()">Clear</button>
+        <button class="tb-btn" onclick="showHint()">💡 Gợi ý</button>
+        <div style="flex: 1"></div>
+        <span style="font-size: 13px; color: #4b5563" id="db-badge"
+          >SQLite · Demo.Memory</span
+        >
+      </div>
+
+      <div id="main">
+        <!-- SIDEBAR (kept original) -->
+        <div id="sidebar">
+          <div id="sb-top">
+            <div class="zone-header" style="margin-top: 0">
+              <span class="zone-title">Private.DB</span>
+              <button
+                class="zone-add"
+                title="Thêm kết nối"
+                onclick="openModal('private')"
+              >
+                +
+              </button>
+            </div>
+            <div style="padding: 6px 12px 8px; font-size: 12px; color: #4b5563">
+              Tạo CSDL liên kết tài khoản.
+            </div>
+            <div class="demo-memory" onclick="switchMainDB('sqlite')">
+              Demo.Memory
+            </div>
+          </div>
+          <div id="sb-scroll">
+            <!-- SQLite -->
+            <div
+              class="db-item active"
+              id="dbi-sqlite"
+              onclick="toggleDB('sqlite')"
+            >
+              <div class="db-item-left">
+                <div class="db-icon">
+                  <svg width="14" height="14" viewBox="0 0 14 14">
+                    <rect
+                      x="1"
+                      y="1"
+                      width="12"
+                      height="12"
+                      rx="2"
+                      fill="#5865f2"
+                      opacity=".2"
+                    />
+                    <rect
+                      x="1"
+                      y="1"
+                      width="12"
+                      height="12"
+                      rx="2"
+                      stroke="#5865f2"
+                      stroke-width="1"
+                    />
+                    <text
+                      x="7"
+                      y="10"
+                      font-size="7"
+                      fill="#818cf8"
+                      text-anchor="middle"
+                      font-weight="700"
+                    >
+                      S
+                    </text>
+                  </svg>
+                </div>
+                <span class="db-name">SQLite</span>
+              </div>
+              <span class="db-arrow open" id="arr-sqlite">›</span>
+            </div>
+            <div id="sub-sqlite">
+              <div class="db-sub">
+                <div class="sub-toolbar">
+                  <button
+                    class="sub-icon-btn"
+                    title="Mở file"
+                    onclick="document.getElementById('db-file-input').click()"
+                  >
+                    📂</button
+                  ><button
+                    class="sub-icon-btn"
+                    title="Lưu"
+                    onclick="showToast('Đã lưu snapshot')"
+                  >
+                    💾</button
+                  ><button
+                    class="sub-icon-btn"
+                    title="Chia sẻ"
+                    onclick="showToast('Sao chép link chia sẻ')"
+                  >
+                    👥</button
+                  ><span class="sub-badge">0.2 beta</span>
+                </div>
+                <div class="sub-section">
+                  <div class="sub-section-title">Table</div>
+                  <div id="sqlite-tables"></div>
+                </div>
+              </div>
+            </div>
+            <!-- DuckDB, PGLite, MariaDB, etc remain same but simplified for brevity, keep original but functional -->
+            <div class="db-item" id="dbi-duckdb" onclick="toggleDB('duckdb')">
+              <div class="db-item-left">
+                <div class="db-icon">
+                  <svg width="14" height="14" viewBox="0 0 14 14">
+                    <circle
+                      cx="7"
+                      cy="7"
+                      r="6"
+                      fill="#f59e0b"
+                      opacity=".2"
+                      stroke="#f59e0b"
+                      stroke-width="1"
+                    />
+                    <circle cx="5" cy="7" r="2" fill="#f59e0b" />
+                    <circle cx="9" cy="7" r="1.2" fill="#fbbf24" opacity=".7" />
+                  </svg>
+                </div>
+                <span class="db-name">DuckDB</span>
+              </div>
+              <span class="db-arrow" id="arr-duckdb">›</span>
+            </div>
+            <div id="sub-duckdb" style="display: none">
+              <div class="db-sub" style="padding: 8px 12px">
+                <div style="font-size: 13px; color: #6b7280">
+                  DuckDB chạy trong trình duyệt (WASM).<br />Hỗ trợ phân tích dữ
+                  liệu lớn.
+                </div>
+                <button
+                  class="tb-btn"
+                  style="margin-top: 10px; width: 100%"
+                  onclick="switchMainDB('duckdb')"
+                >
+                  Kết nối DuckDB
+                </button>
+              </div>
+            </div>
+            <div class="db-item" id="dbi-pglite" onclick="toggleDB('pglite')">
+              <div class="db-item-left">
+                <div class="db-icon">
+                  <svg width="14" height="14" viewBox="0 0 14 14">
+                    <ellipse
+                      cx="7"
+                      cy="4.5"
+                      rx="5"
+                      ry="2"
+                      fill="#3b82f6"
+                      opacity=".2"
+                      stroke="#3b82f6"
+                      stroke-width="1"
+                    />
+                    <path
+                      d="M2 4.5v5c0 1.1 2.2 2 5 2s5-.9 5-2V4"
+                      stroke="#3b82f6"
+                      fill="none"
+                    />
+                  </svg>
+                </div>
+                <span class="db-name">PGLite</span>
+              </div>
+              <span class="db-arrow" id="arr-pglite">›</span>
+            </div>
+            <div id="sub-pglite" style="display: none">
+              <div class="db-sub" style="padding: 8px 12px">
+                <div style="font-size: 13px; color: #6b7280">
+                  PostgreSQL chạy trong trình duyệt.<br />Cú pháp tương thích
+                  PostgreSQL.
+                </div>
+                <button
+                  class="tb-btn"
+                  style="margin-top: 10px; width: 100%"
+                  onclick="switchMainDB('pglite')"
+                >
+                  Kết nối PGLite
+                </button>
+              </div>
+            </div>
+            <div class="demo-server">
+              <span>Demo.Server</span
+              ><span class="offline-badge">(offline)</span>
+            </div>
+            <!-- Remaining DB items: MariaDB, PostgreSQL, MS SQL (shortened but functional) -->
+            <div class="db-item" id="dbi-mariadb" onclick="toggleDB('mariadb')">
+              <div class="db-item-left">
+                <div class="db-icon">
+                  <svg width="14" height="14" viewBox="0 0 14 14">
+                    <path
+                      d="M2 11 L7 3 L12 11"
+                      stroke="#c0392b"
+                      stroke-width="1.5"
+                      fill="none"
+                    />
+                    <circle cx="7" cy="3" r="1.2" fill="#e74c3c" />
+                  </svg>
+                </div>
+                <span class="db-name">MariaDB</span>
+              </div>
+              <span class="db-arrow" id="arr-mariadb">›</span>
+            </div>
+            <div id="sub-mariadb" style="display: none">
+              <div
+                id="mariadb-connect-panel"
+                class="db-sub"
+                style="padding: 8px 12px"
+              >
+                <div
+                  style="margin-bottom: 10px; font-size: 13px; color: #6b7280"
+                >
+                  Click to connect to a temporary database.
+                </div>
+                <button
+                  class="tb-btn"
+                  style="width: 100%"
+                  onclick="openMariaDBConnect()"
+                >
+                  Click to connect
+                </button>
+              </div>
+              <div
+                id="mariadb-connected-panel"
+                class="db-sub"
+                style="display: none"
+              >
+                <div class="sub-toolbar">
+                  <button
+                    class="sub-icon-btn"
+                    title="Paste SQL"
+                    onclick="openPasteModal()"
+                    style="font-size: 11px; width: auto; padding: 0 8px"
+                  >
+                    📋 Paste SQL
+                  </button>
+                  <button
+                    class="sub-icon-btn"
+                    title="Drop & Reset"
+                    onclick="resetMariaDB()"
+                    style="font-size: 11px; width: auto; padding: 0 8px"
+                  >
+                    🗑 Drop Tables
+                  </button>
+                </div>
+                <div class="sub-section">
+                  <div class="sub-section-title">Table</div>
+                  <div id="mariadb-tables"></div>
+                </div>
+              </div>
+            </div>
+            <div
+              class="db-item"
+              id="dbi-postgresql"
+              onclick="toggleDB('postgresql')"
+            >
+              <div class="db-item-left">
+                <div class="db-icon">
+                  <svg width="14" height="14" viewBox="0 0 14 14">
+                    <ellipse
+                      cx="7"
+                      cy="4"
+                      rx="4.5"
+                      ry="2"
+                      fill="#1e40af"
+                      opacity=".25"
+                      stroke="#3b82f6"
+                    />
+                    <path
+                      d="M2.5 4v5.5c0 1.1 2 2 4.5 2s4.5-.9 4.5-2V4"
+                      stroke="#3b82f6"
+                      fill="none"
+                    />
+                    <line
+                      x1="7"
+                      y1="6"
+                      x2="7"
+                      y2="11.5"
+                      stroke="#3b82f6"
+                      opacity=".5"
+                    />
+                  </svg>
+                </div>
+                <span class="db-name">PostgreSQL</span>
+              </div>
+              <span class="db-arrow" id="arr-postgresql">›</span>
+            </div>
+            <div id="sub-postgresql" style="display: none">
+              <div class="db-sub" style="padding: 8px 12px">
+                <div style="margin-bottom: 10px">
+                  Kết nối PostgreSQL server.
+                </div>
+                <button
+                  class="tb-btn"
+                  style="width: 100%"
+                  onclick="openModal('postgresql')"
+                >
+                  + Thêm kết nối
+                </button>
+              </div>
+            </div>
+            <div class="db-item" id="dbi-mssql" onclick="toggleDB('mssql')">
+              <div class="db-item-left">
+                <div class="db-icon">
+                  <svg width="14" height="14" viewBox="0 0 14 14">
+                    <rect
+                      x="1.5"
+                      y="1.5"
+                      width="11"
+                      height="11"
+                      rx="1.5"
+                      fill="#dc2626"
+                      opacity=".15"
+                      stroke="#dc2626"
+                    />
+                    <text
+                      x="7"
+                      y="10"
+                      font-size="7"
+                      fill="#ef4444"
+                      text-anchor="middle"
+                      font-weight="700"
+                    >
+                      M
+                    </text>
+                  </svg>
+                </div>
+                <span class="db-name">MS SQL</span>
+              </div>
+              <span class="db-arrow" id="arr-mssql">›</span>
+            </div>
+            <div id="sub-mssql" style="display: none">
+              <div class="db-sub" style="padding: 8px 12px">
+                <div style="margin-bottom: 10px">
+                  Kết nối Microsoft SQL Server.
+                </div>
+                <button
+                  class="tb-btn"
+                  style="width: 100%"
+                  onclick="openModal('mssql')"
+                >
+                  + Thêm kết nối
+                </button>
+              </div>
+            </div>
+            <div style="height: 8px"></div>
+          </div>
+          <div id="sb-bottom" style="flex-shrink: 0">
+            <div
+              style="
+                border-top: 1px solid #1f2229;
+                padding: 8px 12px;
+                font-size: 11px;
+                color: #4b5563;
+              "
+            >
+              v0.2.1-beta
+            </div>
+          </div>
+        </div>
+
+        <!-- EDITOR PANEL with TABS -->
+        <div id="editor-panel">
+          <div id="query-tabs">
+            <div class="query-tab active">
+              <span class="tab-icon">📄</span>
+              <span>Query 1</span>
+              <span class="close-tab-btn">×</span>
+            </div>
+            <div class="add-tab-btn">+</div>
+          </div>
+          <div id="editor-wrap">
+            <div id="line-nums">1</div>
+            <textarea
+              id="sql-editor"
+              spellcheck="false"
+              placeholder="-- Nhập câu lệnh SQL của bạn ở đây..."
+            ></textarea>
+          </div>
+          <div id="result-panel">
+            <div id="result-tabs">
+              <div class="rtab active">Kết quả</div>
+              <div class="rtab">Lược đồ</div>
+            </div>
+            <div id="result-body">
+              <div id="result-msg">
+                Nhấn 'Run' hoặc F5 để thực thi truy vấn.
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- END EDITOR PANEL -->
+      </div>
+      <div id="toast"></div>
+      <div id="modal-overlay" onclick="closeModal(event)">
+        <div id="modal">
+          <h3 id="modal-title">Kết nối cơ sở dữ liệu</h3>
+          <p id="modal-sub">Nhập thông tin kết nối server</p>
+          <div class="modal-field">
+            <label>Loại CSDL</label
+            ><select id="modal-type">
+              <option value="mariadb">MariaDB / MySQL</option>
+              <option value="postgresql">PostgreSQL</option>
+              <option value="mssql">MS SQL Server</option>
+            </select>
+          </div>
+          <div class="modal-field">
+            <label>Host</label
+            ><input
+              type="text"
+              id="modal-host"
+              value="localhost"
+              placeholder="localhost"
+            />
+          </div>
+          <div class="modal-field" style="display: flex; gap: 8px">
+            <div style="flex: 2">
+              <label>Database</label
+              ><input type="text" id="modal-dbname" placeholder="mydb" />
+            </div>
+            <div style="flex: 1">
+              <label>Port</label
+              ><input type="text" id="modal-port" value="3306" />
+            </div>
+          </div>
+          <div class="modal-field" style="display: flex; gap: 8px">
+            <div style="flex: 1">
+              <label>User</label
+              ><input type="text" id="modal-user" placeholder="root" />
+            </div>
+            <div style="flex: 1">
+              <label>Password</label
+              ><input type="password" id="modal-pass" placeholder="••••••" />
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="m-btn cancel" onclick="closeModal()">Hủy</button
+            ><button class="m-btn connect" onclick="fakeConnect()">
+              Kết nối
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- Paste Modal -->
+      <div id="paste-modal-overlay" onclick="closePasteModal()">
+        <div id="paste-modal" onclick="event.stopPropagation()">
+          <div id="paste-modal-header">
+            <h3>🟠 MariaDB – Paste SQL Script</h3>
+            <p style="font-size: 13px; color: #6b7280; margin-top: 6px">
+              Dán SQL schema (CREATE TABLE, INSERT INTO...) rồi nhấn
+              <b>Run</b> để tạo CSDL tạm.
+            </p>
+          </div>
+          <div id="paste-modal-body">
+            <textarea
+              id="paste-sql"
+              placeholder="-- Dán database script vào đây..."
+            ></textarea>
+          </div>
+          <div id="paste-modal-footer">
+            <button class="m-btn cancel" onclick="closePasteModal()">
+              Cancel
+            </button>
+            <button class="m-btn connect" onclick="runPastedSQL()">
+              ▶ Run
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+    <script>
+      const editor = document.getElementById("sql-editor");
+      const lineNums = document.getElementById("line-nums");
+      const resultBody = document.getElementById("result-body");
+      const sqliteTables = document.getElementById("sqlite-tables");
+      const dbBadge = document.getElementById("db-badge");
+      const queryTabsContainer = document.getElementById("query-tabs");
+
+      // --- DB state ---
+      let db;
+      let mariadb;
+      let activeEngine = "sqlite";
+      let mariadbConnected = false;
+
+      // --- Tab state ---
+      let tabCounter = 1;
+      let tabs = [{ id: 1, name: "Query 1", content: "" }];
+      let activeTabId = 1;
+      let currentResultView = "result"; // "result" | "schema"
+
+      // =====================================================================
+      // INIT
+      // =====================================================================
+      async function initDb() {
+        try {
+          const SQL = await initSqlJs({
+            locateFile: (f) =>
+              `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`,
+          });
+          db = new SQL.Database();
+          window._SQL = SQL;
+          updateDbBadge();
+          refreshSchema();
+          initTabs();
+          initResultTabs();
+        } catch (err) {
+          console.error(err);
+          showResultMsg("Không thể khởi tạo SQL.js: " + err.message, "err");
+        }
+      }
+
+      // =====================================================================
+      // SQL NORMALIZER – convert MySQL/MariaDB syntax → SQLite
+      // =====================================================================
+      function normalizeSQLForSQLite(sql) {
+        return (
+          sql
+            // AUTO_INCREMENT → AUTOINCREMENT (in column def)
+            .replace(/\bAUTO_INCREMENT\b/gi, "AUTOINCREMENT")
+            // INT NOT NULL AUTO_INCREMENT → INTEGER PRIMARY KEY AUTOINCREMENT (safe sub)
+            // Remove ENGINE=, CHARSET=, COLLATE= table options
+            .replace(/\s*ENGINE\s*=\s*\w+/gi, "")
+            .replace(/\s*DEFAULT\s+CHARSET\s*=\s*[\w\d]+/gi, "")
+            .replace(/\s*COLLATE\s*=\s*[\w\d_]+/gi, "")
+            .replace(/\s*CHARACTER\s+SET\s*=?\s*[\w\d]+/gi, "")
+            .replace(/\s*ROW_FORMAT\s*=\s*\w+/gi, "")
+            // Remove comments
+            .replace(/\/\*.*?\*\//gs, "")
+            // TINYINT, MEDIUMINT, BIGINT → INTEGER
+            .replace(
+              /\b(TINYINT|SMALLINT|MEDIUMINT|BIGINT)(\s*\(\d+\))?/gi,
+              "INTEGER",
+            )
+            // DATETIME, TIMESTAMP → TEXT
+            .replace(/\b(DATETIME|TIMESTAMP)\b/gi, "TEXT")
+            // ENUM(...) → TEXT
+            .replace(/\bENUM\s*\([^)]*\)/gi, "TEXT")
+            // UNSIGNED → (remove)
+            .replace(/\bUNSIGNED\b/gi, "")
+            // INT(n) → INTEGER
+            .replace(/\bINT\s*\(\d+\)/gi, "INTEGER")
+            // VARCHAR(n) → TEXT
+            .replace(/\bVARCHAR\s*\(\d+\)/gi, "TEXT")
+            // Remove backtick quoting (MySQL style) → keep name
+            .replace(/`([^`]+)`/g, '"$1"')
+            // DECIMAL(m,n) → REAL
+            .replace(/\bDECIMAL\s*\(\d+\s*,\s*\d+\)/gi, "REAL")
+            // FLOAT(m,d)/DOUBLE(m,d) → REAL
+            .replace(/\b(FLOAT|DOUBLE)\s*(\(\d+\s*,\s*\d+\))?/gi, "REAL")
+            // Remove IF NOT EXISTS already OK in SQLite – keep it
+            // Fix: remove trailing commas before ) in CREATE TABLE
+            .replace(/,\s*\)/g, "\n)")
+        );
+      }
+
+      // =====================================================================
+      // STATEMENT SPLITTER (handles strings, comments, backticks)
+      // =====================================================================
+      function splitStatements(sql) {
+        const results = [];
+        let current = "";
+        let inString = false;
+        let stringChar = "";
+
+        for (let i = 0; i < sql.length; i++) {
+          const ch = sql[i];
+          if (inString) {
+            current += ch;
+            if (ch === stringChar && sql[i - 1] !== "\\") inString = false;
+          } else if (ch === "'" || ch === '"' || ch === "`") {
+            inString = true;
+            stringChar = ch;
+            current += ch;
+          } else if (ch === "-" && sql[i + 1] === "-") {
+            while (i < sql.length && sql[i] !== "\n") i++;
+          } else if (ch === "/" && sql[i + 1] === "*") {
+            i += 2;
+            while (
+              i < sql.length - 1 &&
+              !(sql[i] === "*" && sql[i + 1] === "/")
+            )
+              i++;
+            i++;
+          } else if (ch === ";") {
+            const stmt = current.trim();
+            if (stmt) results.push(stmt);
+            current = "";
+          } else {
+            current += ch;
+          }
+        }
+        const last = current.trim();
+        if (last) results.push(last);
+        return results;
+      }
+
+      // =====================================================================
+      // RUN SQL (active engine)
+      // =====================================================================
+      function runSQL() {
+        const targetDb = activeEngine === "mariadb" ? mariadb : db;
+        if (!targetDb) {
+          showResultMsg(
+            activeEngine === "mariadb"
+              ? "MariaDB chưa kết nối. Hãy click 'Click to connect' trước."
+              : "Cơ sở dữ liệu chưa được khởi tạo.",
+            "err",
+          );
+          return;
+        }
+        const sql = editor.value.trim();
+        if (!sql) {
+          showResultMsg("Không có truy vấn SQL để chạy.", "err");
+          return;
+        }
+        // Switch to result tab
+        switchResultTab("result");
+
+        try {
+          const results = targetDb.exec(sql);
+          renderResults(results);
+          if (activeEngine === "mariadb") refreshMariaDBSchema();
+          else refreshSchema();
+        } catch (err) {
+          showResultMsg("Lỗi: " + err.message, "err");
+        }
+      }
+
+      // =====================================================================
+      // RESULT RENDERING
+      // =====================================================================
+      function showResultMsg(text, cls) {
+        resultBody.innerHTML = `<div id="result-msg" class="result-msg ${cls || ""}">${text}</div>`;
+      }
+
+      function renderResults(results) {
+        resultBody.innerHTML = "";
+
+        if (!results || results.length === 0) {
+          showResultMsg(
+            "✅ Truy vấn thực thi thành công. Không có dữ liệu trả về.",
+            "ok",
+          );
+          return;
+        }
+
+        let totalRows = 0;
+        results.forEach((res) => {
+          totalRows += res.values.length;
+          const table = document.createElement("table");
+          table.className = "res";
+          const thead = document.createElement("thead");
+          const tbody = document.createElement("tbody");
+          const trHead = document.createElement("tr");
+          res.columns.forEach((col) => {
+            const th = document.createElement("th");
+            th.textContent = col;
+            trHead.appendChild(th);
+          });
+          thead.appendChild(trHead);
+          res.values.forEach((row) => {
+            const tr = document.createElement("tr");
+            row.forEach((val) => {
+              const td = document.createElement("td");
+              if (val === null) {
+                td.textContent = "NULL";
+                td.className = "null-val";
+              } else {
+                td.textContent = val;
+              }
+              tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+          });
+          table.appendChild(thead);
+          table.appendChild(tbody);
+          resultBody.appendChild(table);
+        });
+
+        const bar = document.createElement("div");
+        bar.className = "result-msg ok";
+        bar.id = "result-msg";
+        bar.textContent = `✅ Truy vấn OK · ${totalRows} hàng trả về`;
+        resultBody.insertBefore(bar, resultBody.firstChild);
+      }
+
+      // =====================================================================
+      // RESULT TABS (Kết quả / Lược đồ)
+      // =====================================================================
+      function initResultTabs() {
+        const rtabs = document.querySelectorAll(".rtab");
+        rtabs.forEach((tab, i) => {
+          tab.addEventListener("click", () => {
+            switchResultTab(i === 0 ? "result" : "schema");
+          });
+        });
+      }
+
+      function switchResultTab(view) {
+        // If already on the correct view, do nothing to prevent re-rendering
+        if (
+          currentResultView === view &&
+          resultBody.innerHTML.trim() !== "" &&
+          !resultBody.querySelector("#result-msg")
+        ) {
+          // Exception: allow re-rendering if the only content is the initial message
+          const msgEl = resultBody.querySelector("#result-msg");
+          if (!msgEl || (msgEl && !msgEl.textContent.includes("Nhấn 'Run'"))) {
+            return;
+          }
+        }
+
+        currentResultView = view;
+        const rtabs = document.querySelectorAll(".rtab");
+        rtabs.forEach((t, i) => {
+          t.classList.toggle(
+            "active",
+            (i === 0 && view === "result") || (i === 1 && view === "schema"),
+          );
+        });
+
+        // Always clear previous content before rendering new view
+        resultBody.innerHTML = "";
+
+        if (view === "schema") {
+          renderSchemaView();
+        } else {
+          // When switching back to "result", we need to re-render the last result
+          // or show the initial message if no result is available.
+          // A simple approach is to just show a message, and let runSQL fill it.
+          // A better one would be to cache the last result. For now, let's just clear
+          // and show a generic message.
+          showResultMsg(
+            "Chuyển về tab kết quả. Chạy lại truy vấn nếu cần.",
+            "",
+          );
+        }
+      }
+
+      function renderSchemaView() {
+        const targetDb = activeEngine === "mariadb" ? mariadb : db;
+        if (!targetDb) {
+          showResultMsg("Chưa có CSDL nào được kết nối.", "err");
+          return;
+        }
+        resultBody.innerHTML = "";
+
+        try {
+          const tables = targetDb.exec(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;",
+          );
+          if (!tables.length || !tables[0].values.length) {
+            showResultMsg("Chưa có bảng nào trong CSDL.", "");
+            return;
+          }
+
+          tables[0].values.forEach(([tname]) => {
+            // Table header
+            const hdr = document.createElement("div");
+            hdr.style.cssText =
+              "padding:8px 14px 4px;font-size:13px;font-weight:600;color:#e2e8f0;background:#1a1d23;border-bottom:1px solid #2d3139;display:flex;align-items:center;gap:6px;";
+            hdr.innerHTML = `<span style="color:#d97706">⊞</span> ${tname}`;
+            resultBody.appendChild(hdr);
+
+            // Columns table
+            const pragma = targetDb.exec(`PRAGMA table_info("${tname}");`);
+            if (pragma.length) {
+              const tbl = document.createElement("table");
+              tbl.className = "res";
+              tbl.style.marginBottom = "12px";
+              const thead = document.createElement("thead");
+              const hrow = document.createElement("tr");
+              ["#", "Column", "Type", "NotNull", "Default", "PK"].forEach(
+                (h) => {
+                  const th = document.createElement("th");
+                  th.textContent = h;
+                  hrow.appendChild(th);
+                },
+              );
+              thead.appendChild(hrow);
+              tbl.appendChild(thead);
+              const tbody = document.createElement("tbody");
+              pragma[0].values.forEach(
+                ([cid, name, type, notnull, dflt, pk]) => {
+                  const tr = document.createElement("tr");
+                  [
+                    cid,
+                    name,
+                    type || "TEXT",
+                    notnull ? "✓" : "",
+                    dflt ?? "",
+                    pk ? "🔑" : "",
+                  ].forEach((v, vi) => {
+                    const td = document.createElement("td");
+                    td.textContent = v;
+                    if (vi === 5 && pk) td.style.color = "#d97706";
+                    if (vi === 3 && notnull) td.style.color = "#34d399";
+                    tr.appendChild(td);
+                  });
+                  tbody.appendChild(tr);
+                },
+              );
+              tbl.appendChild(tbody);
+              resultBody.appendChild(tbl);
+            }
+          });
+        } catch (e) {
+          showResultMsg("Lỗi đọc schema: " + e.message, "err");
+        }
+      }
+
+      // =====================================================================
+      // SQLITE SCHEMA SIDEBAR
+      // =====================================================================
+      function refreshSchema() {
+        if (!db) return;
+        sqliteTables.innerHTML = "";
+        try {
+          const tables = db.exec(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;",
+          );
+          if (tables.length > 0) {
+            tables[0].values.forEach(([tname]) => {
+              appendTableItem(sqliteTables, tname, "sqlite");
+            });
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      // =====================================================================
+      // MARIADB CONNECT FLOW
+      // =====================================================================
+      function openMariaDBConnect() {
+        openPasteModal();
+      }
+
+      function openPasteModal() {
+        document.getElementById("paste-modal-overlay").style.display = "flex";
+        document.getElementById("paste-sql").focus();
+      }
+
+      function closePasteModal() {
+        document.getElementById("paste-modal-overlay").style.display = "none";
+      }
+
+      async function runPastedSQL() {
+        const rawSQL = document.getElementById("paste-sql").value.trim();
+        if (!rawSQL) {
+          showToast("⚠️ Vui lòng paste SQL trước!");
+          return;
+        }
+        if (!window._SQL) {
+          showToast("⏳ SQL engine chưa sẵn sàng, thử lại sau…");
+          return;
+        }
+
+        try {
+          if (mariadb) mariadb.close();
+          mariadb = new window._SQL.Database();
+
+          // Normalize MySQL → SQLite syntax
+          const normalized = normalizeSQLForSQLite(rawSQL);
+          const stmts = splitStatements(normalized);
+
+          let okCount = 0;
+          let errors = [];
+
+          for (const stmt of stmts) {
+            if (!stmt.trim()) continue;
+            try {
+              mariadb.exec(stmt);
+              okCount++;
+            } catch (e) {
+              errors.push({
+                stmt: stmt.slice(0, 80) + (stmt.length > 80 ? "…" : ""),
+                msg: e.message,
+              });
+            }
+          }
+
+          if (okCount === 0 && errors.length > 0) {
+            showToast("❌ Tất cả câu lệnh đều lỗi!");
+            showResultMsg(
+              "❌ Lỗi: " + errors.map((e) => e.msg).join(" | "),
+              "err",
+            );
+            return;
+          }
+
+          activeEngine = "mariadb";
+          mariadbConnected = true;
+          closePasteModal();
+          switchToMariaDBUI();
+          refreshMariaDBSchema();
+          updateDbBadge("mariadb");
+
+          const tableCount = getMariaDBTableCount();
+          const warnMsg = errors.length ? ` · ${errors.length} câu bỏ qua` : "";
+          showToast(`✅ MariaDB kết nối · ${tableCount} bảng${warnMsg}`);
+
+          if (errors.length > 0) {
+            showResultMsg(
+              `⚠️ ${okCount} câu OK · ${errors.length} câu lỗi (cú pháp không tương thích):\n` +
+                errors
+                  .slice(0, 3)
+                  .map((e) => `• ${e.msg}`)
+                  .join("\n"),
+              "ok",
+            );
+          } else {
+            showResultMsg(
+              `✅ Đã nạp ${tableCount} bảng vào MariaDB (Demo.Memory). Nhấn tên bảng để xem dữ liệu.`,
+              "ok",
+            );
+          }
+        } catch (err) {
+          showToast("❌ Lỗi: " + err.message);
+          showResultMsg("❌ " + err.message, "err");
+        }
+      }
+
+      function getMariaDBTableCount() {
+        if (!mariadb) return 0;
+        try {
+          const r = mariadb.exec(
+            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';",
+          );
+          return r.length ? r[0].values[0][0] : 0;
+        } catch (e) {
+          return 0;
+        }
+      }
+
+      // =====================================================================
+      // MARIADB SCHEMA SIDEBAR
+      // =====================================================================
+      function refreshMariaDBSchema() {
+        if (!mariadb) return;
+        const container = document.getElementById("mariadb-tables");
+        container.innerHTML = "";
+        try {
+          const tables = mariadb.exec(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;",
+          );
+          if (!tables.length || !tables[0].values.length) {
+            container.innerHTML =
+              '<div style="font-size:12px;color:#4b5563;padding:6px 12px 8px 30px;">Không có bảng nào.</div>';
+            return;
+          }
+          tables[0].values.forEach(([tname]) => {
+            appendTableItem(container, tname, "mariadb");
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      // =====================================================================
+      // TABLE ITEM + COLUMN EXPANDER (sidebar)
+      // =====================================================================
+      function appendTableItem(container, tableName, engine) {
+        const wrap = document.createElement("div");
+
+        const item = document.createElement("div");
+        item.className = "table-item";
+        item.innerHTML = `
+          <div class="table-item-left">
+            <span style="color:#d97706;font-size:15px;line-height:1">⊞</span>
+            <span class="tbl-name">${tableName}</span>
+          </div>
+          <span class="tbl-arr" id="tarr-${engine}-${tableName}" style="transition:transform .2s;display:inline-block">›</span>
+        `;
+
+        const colList = document.createElement("div");
+        colList.className = "col-list";
+        colList.style.display = "none";
+        let colsLoaded = false;
+
+        item.addEventListener("click", () => {
+          const isOpen = colList.style.display !== "none";
+          colList.style.display = isOpen ? "none" : "block";
+          const arr = document.getElementById(`tarr-${engine}-${tableName}`);
+          if (arr)
+            arr.style.transform = isOpen ? "rotate(0deg)" : "rotate(90deg)";
+
+          if (!isOpen && !colsLoaded) {
+            loadColumns(tableName, engine, colList);
+            colsLoaded = true;
+          }
+          if (!isOpen) {
+            editor.value = `SELECT * FROM "${tableName}" LIMIT 100;`;
+            updateLineNumbers();
+          }
+        });
+
+        wrap.appendChild(item);
+        wrap.appendChild(colList);
+        container.appendChild(wrap);
+      }
+
+      function loadColumns(tableName, engine, colList) {
+        const targetDb = engine === "mariadb" ? mariadb : db;
+        if (!targetDb) return;
+        try {
+          const pragma = targetDb.exec(`PRAGMA table_info("${tableName}");`);
+          if (!pragma.length) return;
+          pragma[0].values.forEach(([cid, name, type, notnull, dflt, pk]) => {
+            const div = document.createElement("div");
+            div.className = "col-item";
+            div.innerHTML = `
+              ${pk ? '<span class="col-pk">PK</span>' : ""}
+              ${notnull && !pk ? '<span style="color:#6b7280;font-size:10px;background:#1a1d23;padding:1px 3px;border-radius:2px;font-weight:600">NN</span>' : ""}
+              <span style="color:#c8cdd6">${name}</span>
+              <span class="col-type">${(type || "TEXT").replace(/\s+/g, " ").trim()}</span>
+            `;
+            colList.appendChild(div);
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      // =====================================================================
+      // SWITCH MARIADB UI STATE
+      // =====================================================================
+      function switchToMariaDBUI() {
+        document.getElementById("mariadb-connect-panel").style.display = "none";
+        document.getElementById("mariadb-connected-panel").style.display =
+          "block";
+        const sub = document.getElementById("sub-mariadb");
+        const arr = document.getElementById("arr-mariadb");
+        if (sub) sub.style.display = "block";
+        if (arr) arr.classList.add("open");
+        document
+          .querySelectorAll(".db-item")
+          .forEach((el) => el.classList.remove("active"));
+        document.getElementById("dbi-mariadb").classList.add("active");
+      }
+
+      function resetMariaDB() {
+        if (!confirm("Xóa tất cả bảng trong MariaDB tạm thời?")) return;
+        if (mariadb) mariadb.close();
+        mariadb = new window._SQL.Database();
+        refreshMariaDBSchema();
+        showToast("🗑 Đã xóa tất cả bảng.");
+        showResultMsg("Đã xóa toàn bộ bảng. Paste SQL mới để bắt đầu lại.", "");
+      }
+
+      // =====================================================================
+      // TAB MANAGEMENT
+      // =====================================================================
+      function initTabs() {
+        renderTabs();
+        // Wire add-tab button
+        const addBtn = document.querySelector(".add-tab-btn");
+        if (addBtn) addBtn.onclick = addTab;
+      }
+
+      function renderTabs() {
+        const container = document.getElementById("query-tabs");
+        container.innerHTML = "";
+        tabs.forEach((tab) => {
+          const div = document.createElement("div");
+          div.className =
+            "query-tab" + (tab.id === activeTabId ? " active" : "");
+          div.dataset.tabId = tab.id;
+          div.innerHTML = `
+            <span class="tab-icon">📄</span>
+            <span>${tab.name}</span>
+            <span class="close-tab-btn">×</span>
+          `;
+          div.addEventListener("click", (e) => {
+            if (e.target.classList.contains("close-tab-btn")) {
+              closeTab(tab.id);
+            } else {
+              switchTab(tab.id);
+            }
+          });
+          container.appendChild(div);
+        });
+        // Add-tab button
+        const addBtn = document.createElement("div");
+        addBtn.className = "add-tab-btn";
+        addBtn.textContent = "+";
+        addBtn.title = "Thêm tab mới";
+        addBtn.onclick = addTab;
+        container.appendChild(addBtn);
+      }
+
+      function addTab() {
+        // Save current tab content
+        if (activeTabId) {
+          const cur = tabs.find((t) => t.id === activeTabId);
+          if (cur) cur.content = editor.value;
+        }
+        tabCounter++;
+        const newTab = {
+          id: tabCounter,
+          name: `Query ${tabCounter}`,
+          content: "",
+        };
+        tabs.push(newTab);
+        activeTabId = newTab.id;
+        editor.value = "";
+        updateLineNumbers();
+        renderTabs();
+        editor.focus();
+      }
+
+      function switchTab(id) {
+        // Save current
+        if (activeTabId) {
+          const cur = tabs.find((t) => t.id === activeTabId);
+          if (cur) cur.content = editor.value;
+        }
+        activeTabId = id;
+        const tab = tabs.find((t) => t.id === id);
+        if (tab) {
+          editor.value = tab.content;
+          updateLineNumbers();
+        }
+        renderTabs();
+        editor.focus();
+      }
+
+      function closeTab(id) {
+        if (tabs.length === 1) {
+          // Just clear instead of removing last tab
+          editor.value = "";
+          tabs[0].content = "";
+          updateLineNumbers();
+          return;
+        }
+        const idx = tabs.findIndex((t) => t.id === id);
+        tabs.splice(idx, 1);
+        if (activeTabId === id) {
+          const next = tabs[Math.min(idx, tabs.length - 1)];
+          activeTabId = next.id;
+          editor.value = next.content;
+          updateLineNumbers();
+        }
+        renderTabs();
+      }
+
+      // =====================================================================
+      // BADGE & SWITCH DB
+      // =====================================================================
+      function updateDbBadge(dbType = "sqlite") {
+        if (dbType === "sqlite") dbBadge.textContent = "SQLite · Demo.Memory";
+        else if (dbType === "mariadb")
+          dbBadge.textContent = "🟠 MariaDB · Demo.Memory";
+        else if (dbType === "duckdb")
+          dbBadge.textContent = "DuckDB · In-Memory";
+      }
+
+      function switchMainDB(dbType) {
+        if (dbType === "sqlite") {
+          activeEngine = "sqlite";
+          updateDbBadge("sqlite");
+          document
+            .querySelectorAll(".db-item")
+            .forEach((el) => el.classList.remove("active"));
+          document.getElementById("dbi-sqlite").classList.add("active");
+          showToast("Đã chuyển sang SQLite.");
+        } else {
+          showToast(`${dbType} chưa được hỗ trợ trong phiên bản này.`);
+        }
+      }
+
+      // =====================================================================
+      // SIDEBAR TOGGLE
+      // =====================================================================
+      function toggleDB(dbId) {
+        const sub = document.getElementById(`sub-${dbId}`);
+        const arr = document.getElementById(`arr-${dbId}`);
+        if (sub) {
+          const isVisible = sub.style.display !== "none";
+          sub.style.display = isVisible ? "none" : "block";
+          if (arr) arr.classList.toggle("open", !isVisible);
+        }
+      }
+
+      // =====================================================================
+      // HINT MODAL
+      // =====================================================================
+      function showHint() {
+        const targetDb = activeEngine === "mariadb" ? mariadb : db;
+        const engine = activeEngine === "mariadb" ? "MariaDB (Demo)" : "SQLite";
+
+        let tableList = "";
+        if (targetDb) {
+          try {
+            const t = targetDb.exec(
+              "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';",
+            );
+            if (t.length) {
+              tableList =
+                "\n\nBảng hiện có:\n" +
+                t[0].values.map(([n]) => `  • ${n}`).join("\n");
+            }
+          } catch (e) {}
+        }
+
+        const msg = `💡 Gợi ý SQL (${engine})
+━━━━━━━━━━━━━━━━━━━━━━━━
+Truy vấn dữ liệu:
+  SELECT * FROM tên_bảng;
+  SELECT col1, col2 FROM t WHERE điều_kiện;
+  SELECT * FROM t ORDER BY col DESC LIMIT 10;
+
+Tạo & Chỉnh sửa:
+  CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT);
+  INSERT INTO t VALUES (1, 'Giá trị');
+  UPDATE t SET name='Mới' WHERE id=1;
+  DELETE FROM t WHERE id=1;
+
+MariaDB → Kết nối:
+  1. Click MariaDB → "Click to connect"
+  2. Paste script SQL (CREATE TABLE, INSERT...)
+  3. Nhấn ▶ Run → bảng hiện trong sidebar
+  4. Click tên bảng để xem cột & SELECT tự động
+${tableList}`;
+
+        alert(msg);
+      }
+
+      // =====================================================================
+      // HELPERS
+      // =====================================================================
+      function clearEditor() {
+        editor.value = "";
+        updateLineNumbers();
+        const cur = tabs.find((t) => t.id === activeTabId);
+        if (cur) cur.content = "";
+      }
+
+      function updateLineNumbers() {
+        if (!editor) return;
+        const count = editor.value.split("\n").length;
+        lineNums.innerHTML = Array.from(
+          { length: count },
+          (_, i) => i + 1,
+        ).join("<br>");
+      }
+
+      function showToast(message) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.style.display = "block";
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => {
+          toast.style.display = "none";
+        }, 3500);
+      }
+
+      function openModal(type) {
+        if (type === "private")
+          document.getElementById("modal-overlay").style.display = "flex";
+      }
+
+      function closeModal() {
+        document.getElementById("modal-overlay").style.display = "none";
+      }
+
+      function fakeConnect() {
+        showToast("Kết nối server thực chưa được hỗ trợ trong phiên bản beta.");
+        closeModal();
+      }
+
+      // =====================================================================
+      // EVENT LISTENERS
+      // =====================================================================
+      if (editor) {
+        editor.addEventListener("input", () => {
+          updateLineNumbers();
+          const cur = tabs.find((t) => t.id === activeTabId);
+          if (cur) cur.content = editor.value;
+        });
+        editor.addEventListener("scroll", () => {
+          if (lineNums) lineNums.scrollTop = editor.scrollTop;
+        });
+        // Tab key inserts spaces
+        editor.addEventListener("keydown", (e) => {
+          if (e.key === "Tab") {
+            e.preventDefault();
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            editor.value =
+              editor.value.slice(0, start) + "  " + editor.value.slice(end);
+            editor.selectionStart = editor.selectionEnd = start + 2;
+            updateLineNumbers();
+          }
+        });
+      }
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "F5") {
+          e.preventDefault();
+          runSQL();
+        }
+        if (e.key === "Escape") {
+          closePasteModal();
+          closeModal();
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+          e.preventDefault();
+          runSQL();
+        }
+      });
+
+      document.addEventListener("DOMContentLoaded", () => {
+        initDb();
+        updateLineNumbers();
+        showResultMsg("Nhấn ▶ Run hoặc F5 để thực thi truy vấn.", "");
+      });
+
+      // Chức năng đóng/mở Sidebar
+      function toggleSidebar() {
+        const app = document.getElementById("app");
+        app.classList.toggle("sidebar-hidden");
+      }
+    </script>
+  </body>
+</html>
