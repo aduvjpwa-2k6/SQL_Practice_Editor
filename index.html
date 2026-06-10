@@ -470,6 +470,7 @@
         flex: 1;
         overflow: hidden;
         display: flex;
+        background: var(--bg-base);
       }
 
       #line-nums {
@@ -483,26 +484,82 @@
         background: var(--bg-panel);
         border-right: 1px solid var(--border-light);
         user-select: none;
+        z-index: 3;
       }
 
-      #sql-editor {
-        flex: 1;
-        resize: none;
-        border: none;
-        outline: none;
+      /* DÙNG CHUNG ĐỂ KHỚP 100% TỌA ĐỘ */
+      .editor-base {
+        position: absolute;
+        top: 0;
+        left: 50px;
+        right: 0;
+        bottom: 0;
         padding: 20px;
+        margin: 0;
+        border: none;
+        box-sizing: border-box;
         font-family: var(--font-mono);
         font-size: 14px;
         line-height: 1.6;
-        background: transparent;
-        color: var(--text-primary);
-        caret-color: var(--accent-emerald);
         white-space: pre;
+        tab-size: 2;
+        text-align: left;
+        font-variant-ligatures: none;
+        letter-spacing: normal;
+        word-spacing: normal;
+      }
+
+      #sql-editor {
+        color: transparent; /* Ẩn chữ thật đi */
+        background: transparent;
+        caret-color: var(--text-primary); /* Giữ lại con trỏ chuột để gõ */
+        z-index: 2;
+        resize: none;
+        outline: none;
         overflow: auto;
       }
+
+      #highlight-layer {
+        color: #d4d4d4; /* Màu chữ mặc định */
+        background: transparent;
+        z-index: 1; /* Nằm dưới textarea */
+        pointer-events: none; /* Chuột xuyên qua lớp này để click được vào textarea */
+        overflow: hidden;
+      }
+
+      /* MÀU SẮC SYNTAX HIGHLIGHTING (Theme Dark) */
+      .hl-keyword {
+        color: #569cd6;
+        font-weight: 600;
+      } /* Xanh dương */
+      .hl-function {
+        color: #dcdcaa;
+      } /* Vàng mờ */
+      .hl-string {
+        color: #ce9178;
+      } /* Cam đất */
+      .hl-identifier {
+        color: #9cdcfe;
+      } /* Xanh ngọc */
+      .hl-number {
+        color: #b5cea8;
+      } /* Xanh lá nhạt */
+      .hl-comment {
+        color: #6a9955;
+        font-style: italic;
+      } /* Xanh rêu */
       #sql-editor::placeholder {
         color: var(--border-focus);
         font-style: italic;
+      }
+
+      /* Tinh chỉnh màu vùng bôi đen (Selection) để chữ không bị che khuất */
+      #sql-editor::selection {
+        background: rgba(99, 102, 241, 0.3);
+        color: transparent;
+      }
+      #highlight-layer::selection {
+        background: transparent;
       }
 
       /* ---- RESULT PANEL ---- */
@@ -846,32 +903,15 @@
             <span class="zone-title">Connections</span>
             <button class="zone-add" title="Add Connection" onclick="openModal('private')">+</button>
           </div>
-          <div class="demo-memory" onclick="switchMainDB('sqlite')">⚡ Quick Demo Database</div>
 
           <div id="sb-scroll">
-            <div class="db-item active" id="dbi-sqlite" onclick="toggleDB('sqlite')">
-              <div class="db-item-left">
-                <span class="db-name">SQLite</span>
-              </div>
-              <span class="db-arrow open" id="arr-sqlite">›</span>
-            </div>
-            <div id="sub-sqlite">
-              <div class="db-sub">
-                <div class="sub-toolbar">
-                  <button class="sub-icon-btn" title="Open File" onclick="document.getElementById('db-file-input').click()">📂</button>
-                  <button class="sub-icon-btn" title="Save" onclick="showToast('Snapshot Saved')">💾</button>
-                </div>
-                <div id="sqlite-tables"></div>
-              </div>
-            </div>
-
-            <div class="db-item" id="dbi-mariadb" onclick="toggleDB('mariadb')">
+            <div class="db-item active" id="dbi-mariadb" onclick="toggleDB('mariadb')">
               <div class="db-item-left">
                 <span class="db-name">MariaDB</span>
               </div>
-              <span class="db-arrow" id="arr-mariadb">›</span>
+              <span class="db-arrow open" id="arr-mariadb">›</span>
             </div>
-            <div id="sub-mariadb" style="display: none">
+            <div id="sub-mariadb">
               <div id="mariadb-connect-panel" class="db-sub" style="padding: 16px 20px; text-align: center">
                 <button class="tb-btn" style="width: 100%; justify-content: center" onclick="openMariaDBConnect()">Connect Setup</button>
               </div>
@@ -897,7 +937,8 @@
           </div>
           <div id="editor-wrap">
             <div id="line-nums">1</div>
-            <textarea id="sql-editor" spellcheck="false" placeholder="-- Write your magical SQL here..."></textarea>
+            <div id="highlight-layer" class="editor-base"></div>
+            <textarea id="sql-editor" class="editor-base" spellcheck="false"></textarea>
           </div>
 
           <div id="result-panel">
@@ -944,7 +985,7 @@
             <p>Paste your SQL Schema (CREATE, INSERT) to mock the database.</p>
           </div>
           <div id="paste-modal-body">
-            <textarea id="paste-sql" placeholder="-- e.g. CREATE TABLE users (id INT, name VARCHAR); ..."></textarea>
+            <textarea id="paste-sql" placeholder="-- Nhập CSDL của bạn vào đây..."></textarea>
           </div>
           <div class="modal-actions">
             <button class="tb-btn" onclick="closePasteModal()">Cancel</button>
@@ -966,9 +1007,8 @@
       const queryTabsContainer = document.getElementById("query-tabs");
 
       // --- DB state ---
-      let db;
       let mariadb;
-      let activeEngine = "sqlite";
+      let activeEngine = "mariadb";
       let mariadbConnected = false;
 
       // --- Tab state ---
@@ -976,19 +1016,215 @@
       let tabs = [{ id: 1, name: "Query 1", content: "" }];
       let activeTabId = 1;
       let currentResultView = "result"; // "result" | "schema"
+      let lastResultHTML = `<div id="result-msg">Ready. Press F5 to execute.</div>`;
 
       // =====================================================================
       // INIT
       // =====================================================================
+      const highlightLayer = document.getElementById("highlight-layer");
+
+      function updateHighlight() {
+        if (!editor || !highlightLayer) return;
+        const text = editor.value;
+
+        if (!text) {
+          highlightLayer.innerHTML = `<span style="color: var(--border-focus); font-style: italic;">-- Nhập câu lệnh SQL của bạn ở đây...</span>`;
+          return;
+        }
+
+        // Tối ưu bằng Set() để tra cứu từ khóa nhanh hơn
+        const keywords = new Set([
+          "SELECT",
+          "FROM",
+          "WHERE",
+          "INSERT",
+          "INTO",
+          "UPDATE",
+          "DELETE",
+          "CREATE",
+          "TABLE",
+          "DROP",
+          "ALTER",
+          "JOIN",
+          "INNER",
+          "LEFT",
+          "RIGHT",
+          "OUTER",
+          "ON",
+          "GROUP",
+          "BY",
+          "ORDER",
+          "HAVING",
+          "LIMIT",
+          "OFFSET",
+          "DISTINCT",
+          "AS",
+          "IN",
+          "NOT",
+          "BETWEEN",
+          "LIKE",
+          "IS",
+          "NULL",
+          "AND",
+          "OR",
+          "EXISTS",
+          "UNION",
+          "ALL",
+          "CASE",
+          "WHEN",
+          "THEN",
+          "ELSE",
+          "END",
+          "VALUES",
+          "SET",
+          "PRIMARY",
+          "KEY",
+          "FOREIGN",
+          "REFERENCES",
+          "UNIQUE",
+          "DEFAULT",
+          "AUTOINCREMENT",
+          "INTEGER",
+          "TEXT",
+          "REAL",
+          "BLOB",
+          "NUMERIC",
+          "BOOLEAN",
+          "WITH",
+          "RECURSIVE",
+          "EXPLAIN",
+          "PRAGMA",
+          "TRANSACTION",
+          "COMMIT",
+          "ROLLBACK",
+          "BEGIN",
+          "TRIGGER",
+          "VIEW",
+          "INDEX",
+          "IF",
+        ]);
+        const functions = new Set(["COUNT", "SUM", "AVG", "MIN", "MAX", "UPPER", "LOWER", "LENGTH", "SUBSTR", "TRIM", "REPLACE", "INSTR", "PRINTF", "ROUND", "ABS", "COALESCE", "NULLIF", "IFNULL", "IIF", "CAST", "TYPEOF", "DATE", "TIME", "DATETIME", "STRFTIME", "JULIANDAY", "NOW", "RANDOM", "HEX", "QUOTE", "GROUP_CONCAT", "ROW_NUMBER", "RANK", "DENSE_RANK", "LAG", "LEAD", "OVER", "PARTITION"]);
+
+        // Cập nhật Regex: Thêm |([\s\S]) ở cuối cùng để gom mọi ký tự thừa (khoảng trắng, ký tự chưa lọt vào rule...)
+        const masterRegex = /(\/\*[\s\S]*?\*\/|--.*)|('[^']*')|("[^"]*"|`[^`]*`)|(\b\d+(?:\.\d+)?\b)|([=<>!+\-\*\/%,;]+)|(\b[a-zA-Z_][a-zA-Z0-9_]*\b)|([\s\S])/g;
+
+        // CHẠY TRỰC TIẾP TRÊN TEXT GỐC
+        let highlighted = text.replace(masterRegex, (match, comment, string, identifier, number, operator, word, other) => {
+          // Hàm escape HTML áp dụng cho từng cục kết quả
+          const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+          if (comment) return `<span style="color: #6a9955; font-style: italic;">${esc(comment)}</span>`;
+          if (string) return `<span style="color: #81d076;">${esc(string)}</span>`;
+          if (identifier) return `<span style="color: #f59042;">${esc(identifier)}</span>`;
+          if (number) return `<span style="color: #b5cea8;">${esc(number)}</span>`;
+          if (operator) return `<span style="color: #c586c0; font-weight: bold;">${esc(operator)}</span>`;
+          if (word) {
+            const upperWord = word.toUpperCase();
+            if (keywords.has(upperWord)) {
+              return `<span style="color: #f59042; font-weight: 600;">${esc(word)}</span>`;
+            }
+            if (functions.has(upperWord)) {
+              return `<span style="color: #a909e8;">${esc(word)}</span>`;
+            }
+            return `<span style="color: #16ded7;">${esc(word)}</span>`;
+          }
+          // Match những ký tự khoảng trắng hoặc không thuộc quy tắc nào phía trên
+          if (other) return esc(other);
+
+          return "";
+        });
+
+        // Khắc phục lỗi con trỏ chuột (caret) bị lệch khi gõ Enter ở cuối dòng
+        if (text[text.length - 1] === "\n") highlighted += " ";
+
+        highlightLayer.innerHTML = highlighted;
+      }
+
+      // --- CÁC HÀM XỬ LÝ LƯU TRỮ (LOCALSTORAGE) ---
+
+      // --- CÁC HÀM XỬ LÝ LƯU TRỮ (LOCALSTORAGE) ---
+
+      // Mã hóa mảng nhị phân CSDL sang Base64 để lưu vào localStorage
+      function uint8ArrayToBase64(uint8Array) {
+        let binary = "";
+        const chunkSize = 0xffff;
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          binary += String.fromCharCode.apply(null, uint8Array.subarray(i, i + chunkSize));
+        }
+        return btoa(binary);
+      }
+
+      // Giải mã chuỗi Base64 ngược lại mảng nhị phân để nạp vào CSDL
+      function base64ToUint8Array(base64) {
+        const binaryString = atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+      }
+
+      // 1. LƯU TRẠNG THÁI CÁC CÂU LỆNH (TABS) - Hàm này bị thiếu trong code của bạn
+      function saveEditorState() {
+        if (activeTabId) {
+          const cur = tabs.find((t) => t.id === activeTabId);
+          if (cur) cur.content = editor.value;
+        }
+        localStorage.setItem("sql_practice_tabs", JSON.stringify(tabs));
+        localStorage.setItem("sql_practice_active_tab_id", activeTabId);
+        localStorage.setItem("sql_practice_tab_counter", tabCounter);
+      }
+
+      // 2. TẢI LẠI TRẠNG THÁI CÁC CÂU LỆNH
+      function loadEditorState() {
+        const savedTabs = localStorage.getItem("sql_practice_tabs");
+        const savedActiveTabId = localStorage.getItem("sql_practice_active_tab_id");
+        const savedCounter = localStorage.getItem("sql_practice_tab_counter");
+        if (savedTabs) {
+          tabs = JSON.parse(savedTabs);
+          activeTabId = parseInt(savedActiveTabId) || tabs[0].id;
+          tabCounter = parseInt(savedCounter) || tabs.length;
+        }
+      }
+
+      // 3. LƯU TRẠNG THÁI CSDL (MARIADB) - Đã được làm sạch, bỏ SQLite
+      function saveDatabaseState() {
+        try {
+          if (mariadb && mariadbConnected) {
+            const mariadbData = mariadb.export();
+            localStorage.setItem("sql_practice_mariadb_db", uint8ArrayToBase64(mariadbData));
+            localStorage.setItem("sql_practice_mariadb_connected", "true");
+          } else {
+            localStorage.removeItem("sql_practice_mariadb_db");
+            localStorage.removeItem("sql_practice_mariadb_connected");
+          }
+          localStorage.setItem("sql_practice_active_engine", "mariadb");
+        } catch (e) {
+          console.error("Không thể lưu CSDL:", e);
+        }
+      }
+
       async function initDb() {
         try {
           const SQL = await initSqlJs({
             locateFile: (f) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`,
           });
-          db = new SQL.Database();
           window._SQL = SQL;
-          updateDbBadge();
-          refreshSchema();
+
+          // Chỉ khôi phục MariaDB
+          const savedMariadb = localStorage.getItem("sql_practice_mariadb_db");
+          const isMariadbConnected = localStorage.getItem("sql_practice_mariadb_connected");
+          if (savedMariadb && isMariadbConnected === "true") {
+            mariadb = new SQL.Database(base64ToUint8Array(savedMariadb));
+            mariadbConnected = true;
+            switchToMariaDBUI();
+            refreshMariaDBSchema();
+          } else {
+            document.getElementById("mariadb-connect-panel").style.display = "block";
+          }
+
+          updateDbBadge("mariadb");
           initTabs();
           initResultTabs();
         } catch (err) {
@@ -1148,9 +1384,8 @@
       // RUN SQL (active engine)
       // =====================================================================
       function runSQL() {
-        const targetDb = activeEngine === "mariadb" ? mariadb : db;
-        if (!targetDb) {
-          showResultMsg(activeEngine === "mariadb" ? "MariaDB chưa kết nối. Hãy click 'Click to connect' trước." : "Cơ sở dữ liệu chưa được khởi tạo.", "err");
+        if (!mariadb || !mariadbConnected) {
+          showResultMsg("MariaDB chưa kết nối. Hãy click 'Connect Setup' trước.", "err");
           return;
         }
         const sql = editor.value.trim();
@@ -1159,29 +1394,22 @@
           return;
         }
 
-        // ── Detect DELIMITER / PROCEDURE / FUNCTION / TRIGGER ──────────────
         const hasDelimiter = /^\s*DELIMITER\b/im.test(sql);
         const hasProcedure = /\bCREATE\s+(DEFINER\s*=\s*\S+\s+)?(PROCEDURE|FUNCTION)\b/i.test(sql);
         const hasCallProc = /^\s*CALL\s+\w+/im.test(sql);
 
-        if (hasDelimiter || hasProcedure) {
-          showResultMsg(`⚠️ PROCEDURE / FUNCTION / DELIMITER không được hỗ trợ trong môi trường này.\n\n` + `Trang web sử dụng SQLite (sql.js) chạy trên trình duyệt — SQLite không có stored procedures.\n\n` + `💡 Để học PROCEDURE & DELIMITER, hãy dùng:\n` + `  • MySQL Workbench hoặc phpMyAdmin cài trên máy\n` + `  • db-fiddle.com (chọn MySQL)\n` + `  • sqlfiddle.com (chọn MySQL 8.0)`, "err");
+        if (hasDelimiter || hasProcedure || hasCallProc) {
+          showResultMsg(`⚠️ PROCEDURE / FUNCTION / DELIMITER không được hỗ trợ trong môi trường này.`, "err");
           return;
         }
 
-        if (hasCallProc) {
-          showResultMsg(`⚠️ CALL không được hỗ trợ vì SQLite không có stored procedures.\n\n` + `Hãy thử viết logic trực tiếp bằng SELECT / WITH / subquery.`, "err");
-          return;
-        }
-
-        // Switch to result tab
         switchResultTab("result");
 
         try {
-          const results = targetDb.exec(sql);
+          const results = mariadb.exec(sql);
           renderResults(results);
-          if (activeEngine === "mariadb") refreshMariaDBSchema();
-          else refreshSchema();
+          refreshMariaDBSchema();
+          if (typeof saveDatabaseState === "function") saveDatabaseState();
         } catch (err) {
           showResultMsg("Lỗi: " + err.message, "err");
         }
@@ -1255,13 +1483,14 @@
       }
 
       function switchResultTab(view) {
-        // If already on the correct view, do nothing to prevent re-rendering
+        // Nếu bấm vào tab đang active sẵn thì không cần xử lý lại
         if (currentResultView === view && resultBody.innerHTML.trim() !== "" && !resultBody.querySelector("#result-msg")) {
-          // Exception: allow re-rendering if the only content is the initial message
-          const msgEl = resultBody.querySelector("#result-msg");
-          if (!msgEl || (msgEl && !msgEl.textContent.includes("Nhấn 'Run'"))) {
-            return;
-          }
+          return;
+        }
+
+        // LƯU Ý MẤU CHỐT: Nếu đang ở tab kết quả và chuẩn bị chuyển đi, hãy lưu lại HTML hiện tại
+        if (currentResultView === "result") {
+          lastResultHTML = resultBody.innerHTML;
         }
 
         currentResultView = view;
@@ -1270,18 +1499,14 @@
           t.classList.toggle("active", (i === 0 && view === "result") || (i === 1 && view === "schema"));
         });
 
-        // Always clear previous content before rendering new view
+        // Xóa trống panel kết quả để chuẩn bị nạp giao diện mới
         resultBody.innerHTML = "";
 
         if (view === "schema") {
           renderSchemaView();
         } else {
-          // When switching back to "result", we need to re-render the last result
-          // or show the initial message if no result is available.
-          // A simple approach is to just show a message, and let runSQL fill it.
-          // A better one would be to cache the last result. For now, let's just clear
-          // and show a generic message.
-          showResultMsg("Chuyển về tab kết quả. Chạy lại truy vấn nếu cần.", "");
+          // KHÔI PHỤC: Khi quay lại tab Data Output, trả lại đúng những gì đã lưu trước đó
+          resultBody.innerHTML = lastResultHTML;
         }
       }
 
@@ -1441,6 +1666,7 @@
           } else {
             showResultMsg(`✅ Đã nạp ${tableCount} bảng vào MariaDB (Demo.Memory). Nhấn tên bảng để xem dữ liệu.`, "ok");
           }
+          saveDatabaseState();
         } catch (err) {
           showToast("❌ Lỗi: " + err.message);
           showResultMsg("❌ " + err.message, "err");
@@ -1557,16 +1783,28 @@
         if (mariadb) mariadb.close();
         mariadb = new window._SQL.Database();
         refreshMariaDBSchema();
+        clearEditor();
+        if (typeof saveEditorState === "function") saveEditorState();
         showToast("🗑 Đã xóa tất cả bảng.");
         showResultMsg("Đã xóa toàn bộ bảng. Paste SQL mới để bắt đầu lại.", "");
+        saveDatabaseState();
       }
 
       // =====================================================================
       // TAB MANAGEMENT
       // =====================================================================
       function initTabs() {
+        loadEditorState(); // Tải lại các tab đã lưu
         renderTabs();
-        // Wire add-tab button
+
+        // Đổ văn bản câu lệnh của Tab đang chọn vào Editor
+        const activeTab = tabs.find((t) => t.id === activeTabId);
+        if (activeTab && editor) {
+          editor.value = activeTab.content;
+          updateLineNumbers();
+          updateHighlight();
+        }
+
         const addBtn = document.querySelector(".add-tab-btn");
         if (addBtn) addBtn.onclick = addTab;
       }
@@ -1619,6 +1857,7 @@
         updateLineNumbers();
         renderTabs();
         editor.focus();
+        saveEditorState();
       }
 
       function switchTab(id) {
@@ -1635,6 +1874,8 @@
         }
         renderTabs();
         editor.focus();
+        updateHighlight();
+        saveEditorState();
       }
 
       function closeTab(id) {
@@ -1654,6 +1895,7 @@
           updateLineNumbers();
         }
         renderTabs();
+        saveEditorState();
       }
 
       // =====================================================================
@@ -1672,6 +1914,7 @@
           document.querySelectorAll(".db-item").forEach((el) => el.classList.remove("active"));
           document.getElementById("dbi-sqlite").classList.add("active");
           showToast("Đã chuyển sang SQLite.");
+          localStorage.setItem("sql_practice_active_engine", "sqlite");
         } else {
           showToast(`${dbType} chưa được hỗ trợ trong phiên bản này.`);
         }
@@ -1738,6 +1981,8 @@ ${tableList}`;
         updateLineNumbers();
         const cur = tabs.find((t) => t.id === activeTabId);
         if (cur) cur.content = "";
+        updateHighlight();
+        saveEditorState();
       }
 
       function updateLineNumbers() {
@@ -1775,11 +2020,17 @@ ${tableList}`;
       if (editor) {
         editor.addEventListener("input", () => {
           updateLineNumbers();
+          updateHighlight();
           const cur = tabs.find((t) => t.id === activeTabId);
           if (cur) cur.content = editor.value;
+          saveEditorState();
         });
         editor.addEventListener("scroll", () => {
           if (lineNums) lineNums.scrollTop = editor.scrollTop;
+          if (highlightLayer) {
+            highlightLayer.scrollTop = editor.scrollTop;
+            highlightLayer.scrollLeft = editor.scrollLeft;
+          }
         });
         // Tab key inserts spaces
         editor.addEventListener("keydown", (e) => {
@@ -2213,6 +2464,8 @@ ${tableList}`;
         const cur = tabs.find((t) => t.id === activeTabId);
         if (cur) cur.content = editor.value;
         editor.focus();
+        updateHighlight();
+        saveEditorState();
       }
 
       function onEditorKeydown(e) {
@@ -2257,6 +2510,7 @@ ${tableList}`;
       document.addEventListener("DOMContentLoaded", () => {
         initDb();
         updateLineNumbers();
+        updateHighlight();
         showResultMsg("Nhấn ▶ Run hoặc F5 để thực thi truy vấn.", "");
         initAutocomplete();
       });
