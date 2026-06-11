@@ -807,6 +807,10 @@
         }
       }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@9.4.3/dist/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({ startOnLoad: false, theme: "dark" });
+    </script>
   </head>
   <body class="bg-slate-950 text-slate-200">
     <div id="landing-page">
@@ -1056,6 +1060,7 @@
             <div id="result-tabs">
               <div class="rtab active">Data Output</div>
               <div class="rtab">Table Schema</div>
+              <div class="rtab">Lược đồ (Diagram)</div>
             </div>
             <div id="result-body"><div id="result-msg">Ready. Press F5 to execute.</div></div>
           </div>
@@ -2199,7 +2204,8 @@
       function initResultTabs() {
         document.querySelectorAll(".rtab").forEach((tab, i) => {
           tab.addEventListener("click", () => {
-            switchResultTab(i === 0 ? "result" : "schema");
+            const views = ["result", "schema", "diagram"];
+            switchResultTab(views[i]);
           });
         });
       }
@@ -2208,12 +2214,202 @@
         if (currentResultView === view && resultBody.innerHTML.trim() !== "" && !resultBody.querySelector("#result-msg")) return;
         if (currentResultView === "result") lastResultHTML = resultBody.innerHTML;
         currentResultView = view;
+
+        const views = ["result", "schema", "diagram"];
         document.querySelectorAll(".rtab").forEach((t, i) => {
-          t.classList.toggle("active", (i === 0 && view === "result") || (i === 1 && view === "schema"));
+          t.classList.toggle("active", views[i] === view);
         });
+
         resultBody.innerHTML = "";
-        if (view === "schema") renderSchemaView();
-        else resultBody.innerHTML = lastResultHTML;
+
+        if (view === "schema") {
+          renderSchemaView();
+        } else if (view === "diagram") {
+          renderDiagramView();
+        } else {
+          resultBody.innerHTML = lastResultHTML;
+        }
+      }
+
+      // =====================================================================
+      // LOGIC QUẢN LÝ ZOOM (LĂN CHUỘT) VÀ KÉO THẢ (PAN) LƯỢC ĐỒ
+      // =====================================================================
+      let diagramScale = 1; // Biến toàn cục lưu trữ tỉ lệ zoom hiện tại
+
+      function renderDiagramView() {
+        if (!mariadb) {
+          showResultMsg("Chưa kết nối CSDL.", "err");
+          return;
+        }
+
+        // Reset lại tỉ lệ zoom
+        diagramScale = 1;
+
+        // Khởi tạo giao diện: thanh công cụ và vùng chứa lược đồ
+        // LƯU Ý: overflow: hidden và cursor: grab để hỗ trợ kéo thả tốt nhất
+        resultBody.innerHTML = `
+          <div id="diagram-container" style="width: 100%; height: 100%; position: relative; overflow: hidden; background: var(--bg-base); padding: 20px; cursor: grab; user-select: none;">
+            
+            <div style="position: absolute; top: 16px; left: 16px; z-index: 50; display: flex; gap: 6px; background: rgba(18, 21, 30, 0.85); backdrop-filter: blur(4px); padding: 6px; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+              <button class="tb-btn" onclick="zoomDiagram(0.1)" title="Phóng to" style="padding: 4px 10px; font-size: 12px;"><i class="fas fa-search-plus"></i></button>
+              <button class="tb-btn" onclick="zoomDiagram(-0.1)" title="Thu nhỏ" style="padding: 4px 10px; font-size: 12px;"><i class="fas fa-search-minus"></i></button>
+              <button class="tb-btn" onclick="resetDiagramZoom()" title="Đặt lại 100%" style="padding: 4px 8px; font-size: 11px;">Reset</button>
+              <span id="zoom-factor" style="font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; padding: 0 6px; font-family: var(--font-mono);">100%</span>
+            </div>
+            
+            <div id="diagram-wrapper" style="transform-origin: center center; transition: transform 0.1s ease-out; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
+              <div class="mermaid" id="mermaid-graph" style="font-family: var(--font-mono); display: inline-block; padding: 50px;">Đang tạo lược đồ...</div>
+            </div>
+
+          </div>
+        `;
+
+        try {
+          // Lấy cấu trúc bảng từ Database
+          const tables = mariadb.exec("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;");
+          if (!tables.length) {
+            document.getElementById("mermaid-graph").innerHTML = "CSDL trống. Không có lược đồ.";
+            return;
+          }
+
+          let erdCode = "erDiagram\n";
+          let relationships = "";
+
+          tables[0].values.forEach(([tname]) => {
+            erdCode += `    ${tname} {\n`;
+            const pragmaCol = mariadb.exec(`PRAGMA table_info("${tname}");`);
+            if (pragmaCol.length) {
+              pragmaCol[0].values.forEach(([cid, name, type, notnull, dflt, pk]) => {
+                let safeType = (type || "TEXT").split("(")[0].replace(/\s+/g, "_");
+                let pkMark = pk ? "PK" : "";
+                erdCode += `        ${safeType} ${name} ${pkMark}\n`;
+              });
+            }
+            erdCode += `    }\n`;
+
+            const pragmaFk = mariadb.exec(`PRAGMA foreign_key_list("${tname}");`);
+            if (pragmaFk.length) {
+              pragmaFk[0].values.forEach(([id, seq, parentTable, fromCol, toCol]) => {
+                relationships += `    ${parentTable} ||--o{ ${tname} : "${fromCol}->${toCol}"\n`;
+              });
+            }
+          });
+
+          const container = document.getElementById("mermaid-graph");
+          container.textContent = erdCode + relationships;
+          container.removeAttribute("data-processed");
+
+          // Render mã ERD thành SVG thông qua thư viện Mermaid
+          mermaid.init(undefined, container, function () {
+            // SAU KHI VẼ XONG -> GỌI HÀM KÍCH HOẠT LĂN CHUỘT VÀ KÉO THẢ
+            setupDiagramInteractions();
+          });
+        } catch (e) {
+          showResultMsg("Lỗi khi tạo lược đồ CSDL: " + e.message, "err");
+        }
+      }
+
+      // HÀM MỚI: Thiết lập Lăn chuột (Zoom) và Kéo thả (Pan)
+      function setupDiagramInteractions() {
+        const diagramContainer = document.getElementById("diagram-container");
+        const wrapper = document.getElementById("diagram-wrapper");
+        if (!diagramContainer || !wrapper) return;
+
+        // 1. ZOOM BẰNG LĂN CHUỘT
+        diagramContainer.addEventListener(
+          "wheel",
+          function (e) {
+            e.preventDefault(); // Ngăn chặn cuộn trang web
+            const zoomAmount = e.deltaY < 0 ? 0.1 : -0.1; // Lăn lên -> Phóng to, Lăn xuống -> Thu nhỏ
+            zoomDiagram(zoomAmount);
+          },
+          { passive: false },
+        );
+
+        // 2. KÉO THẢ ĐỂ DI CHUYỂN (PAN)
+        let isDragging = false;
+        let startX,
+          startY,
+          initialTranslateX = 0,
+          initialTranslateY = 0;
+        let currentTranslateX = 0,
+          currentTranslateY = 0;
+
+        diagramContainer.addEventListener("mousedown", (e) => {
+          if (e.target.closest("button")) return; // Bỏ qua nếu click vào nút zoom
+
+          isDragging = true;
+          diagramContainer.style.cursor = "grabbing"; // Đổi con trỏ thành bàn tay nắm lại
+
+          startX = e.clientX;
+          startY = e.clientY;
+          initialTranslateX = currentTranslateX;
+          initialTranslateY = currentTranslateY;
+        });
+
+        diagramContainer.addEventListener("mousemove", (e) => {
+          if (!isDragging) return;
+          e.preventDefault();
+
+          // Tính toán khoảng cách chuột đã di chuyển
+          const moveX = e.clientX - startX;
+          const moveY = e.clientY - startY;
+
+          // Áp dụng di chuyển mới
+          currentTranslateX = initialTranslateX + moveX;
+          currentTranslateY = initialTranslateY + moveY;
+
+          applyTransform();
+        });
+
+        // Kết thúc kéo thả khi nhả chuột hoặc di chuyển chuột ra khỏi vùng
+        window.addEventListener("mouseup", () => {
+          if (isDragging) {
+            isDragging = false;
+            diagramContainer.style.cursor = "grab"; // Trả lại con trỏ bàn tay mở
+          }
+        });
+
+        // Hàm nội bộ để kết hợp cả Scale (Zoom) và Translate (Kéo thả)
+        window.applyTransform = function () {
+          wrapper.style.transform = `translate(${currentTranslateX}px, ${currentTranslateY}px) scale(${diagramScale})`;
+        };
+      }
+
+      // HÀM BỔ TRỢ: Tăng/giảm tỉ lệ zoom (CẬP NHẬT MỚI)
+      function zoomDiagram(factor) {
+        diagramScale += factor;
+        if (diagramScale < 0.3) diagramScale = 0.3; // Giới hạn thu nhỏ 30%
+        if (diagramScale > 4.0) diagramScale = 4.0; // Giới hạn phóng to 400%
+
+        document.getElementById("zoom-factor").textContent = `${Math.round(diagramScale * 100)}%`;
+        if (typeof applyTransform === "function") applyTransform();
+      }
+
+      // HÀM BỔ TRỢ: Reset zoom và vị trí (CẬP NHẬT MỚI)
+      function resetDiagramZoom() {
+        diagramScale = 1;
+        document.getElementById("zoom-factor").textContent = "100%";
+
+        const wrapper = document.getElementById("diagram-wrapper");
+        if (wrapper) {
+          wrapper.style.transform = `translate(0px, 0px) scale(1)`;
+        }
+        // Gọi lại để reset vị trí tọa độ nội bộ của kéo thả
+        setupDiagramInteractions();
+      }
+
+      // HÀM BỔ TRỢ: Thực thi thay đổi CSS Transform và cập nhật số hiển thị phần trăm
+      function setDiagramScale(scale) {
+        diagramScale = scale;
+        const wrapper = document.getElementById("diagram-wrapper");
+        const indicator = document.getElementById("zoom-factor");
+        if (wrapper) {
+          wrapper.style.transform = `scale(${scale})`;
+        }
+        if (indicator) {
+          indicator.textContent = `${Math.round(scale * 100)}%`;
+        }
       }
 
       function renderSchemaView() {
